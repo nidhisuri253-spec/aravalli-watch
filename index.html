@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ara-Watch | Aravalli Protector</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, sans-serif; background: #000; color: #fff; overflow: hidden; }
+        #map { height: 65vh; width: 100%; }
+        .dashboard { height: 35vh; padding: 20px; background: #111; border-top: 2px solid #333; text-align: center; box-sizing: border-box; }
+        .status-pill { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
+        .monitoring { background: #004400; color: #00ff00; border: 1px solid #00ff00; }
+        .warning { background: #440000; color: #ff4444; border: 1px solid #ff4444; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        h2 { margin: 5px 0; font-size: 1.5rem; }
+        p { margin: 5px 0; color: #aaa; font-size: 0.9rem; }
+        .btn { background: #fff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 15px; font-size: 1rem; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="dashboard">
+        <div id="status-pill" class="status-pill monitoring">📡 INITIALIZING SENSORS...</div>
+        <h2 id="elevation-display">-- m</h2>
+        <p id="geo-coords">Waiting for GPS lock...</p>
+        <button class="btn" onclick="sendReport()">🚨 LOG PROTECTION BREACH</button>
+    </div>
+
+    <script>
+        // 1. Initialize Map centered on Aravallis
+        const map = L.map('map', { zoomControl: false }).setView([28.4595, 77.0266], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let userMarker;
+
+        // 2. Real-time Tracking
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                const latlng = [latitude, longitude];
+
+                // Update Map
+                if (!userMarker) {
+                    userMarker = L.circleMarker(latlng, { color: '#00ff00', radius: 8 }).addTo(map);
+                } else {
+                    userMarker.setLatLng(latlng);
+                }
+                map.panTo(latlng);
+
+                document.getElementById('geo-coords').innerText = `LAT: ${latitude.toFixed(4)} | LNG: ${longitude.toFixed(4)}`;
+
+                // 3. Fetch Elevation
+                try {
+                    const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${latitude},${longitude}`);
+                    const data = await response.json();
+                    const elevation = data.results[0].elevation;
+
+                    document.getElementById('elevation-display').innerText = `${elevation} m`;
+
+                    // 4. Legal Logic: Is it a protected hill?
+                    const pill = document.getElementById('status-pill');
+                    if (elevation > 240) { // Typical hill base in Delhi-NCR
+                        pill.innerText = "⚠️ PROTECTED HILL ZONE";
+                        pill.className = "status-pill warning";
+                    } else {
+                        pill.innerText = "🟢 MONITORING BUFFER";
+                        pill.className = "status-pill monitoring";
+                    }
+                } catch (e) { console.log("Elevation API error"); }
+            }, (err) => alert("Please enable GPS"), { enableHighAccuracy: true });
+        }
+
+        function sendReport() {
+            alert("Ready to send GPS & Elevation data to environmental authorities.");
+        }
+    </script>
+</body>
+</html>
